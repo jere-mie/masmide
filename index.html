@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🖥️</text></svg>" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MasmIDE - Browser MASM32 IDE</title>
+
+    <!-- SEO -->
+    <meta name="description" content="A free, browser-based MASM32/Irvine32 IDE powered by WebAssembly. Write, compile, and run x86 assembly code instantly - no installation required." />
+    <meta name="keywords" content="MASM, MASM32, Irvine32, assembly, IDE, browser, WebAssembly, x86, assembler" />
+    <meta name="author" content="MasmIDE" />
+    <link rel="canonical" href="https://masm.bornais.ca" />
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://masm.bornais.ca" />
+    <meta property="og:title" content="MasmIDE - Browser MASM32 IDE" />
+    <meta property="og:description" content="Write, compile, and run MASM32/Irvine32 x86 assembly in your browser. No installation required - powered by WebAssembly." />
+    <meta property="og:site_name" content="MasmIDE" />
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="MasmIDE - Browser MASM32 IDE" />
+    <meta name="twitter:description" content="Write, compile, and run MASM32/Irvine32 x86 assembly in your browser. No installation required." />
+
+    <!-- Theme -->
+    <meta name="theme-color" content="#1e1e2e" />
+    <meta name="color-scheme" content="dark" />
+
+    <!-- Service worker: injects COOP/COEP headers so SharedArrayBuffer works
+         on GitHub Pages and other static hosts that don't support custom headers -->
+    <script src="/coi-serviceworker.js"></script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
