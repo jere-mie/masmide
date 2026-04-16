@@ -59,14 +59,43 @@
       return;
     }
 
+    let reloading = false;
+    const reloadOnce = () => {
+      if (reloading || window.crossOriginIsolated) return;
+      reloading = true;
+      sessionStorage.setItem(reloadKey, '1');
+      window.location.reload();
+    };
+
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (!window.crossOriginIsolated) reloadOnce();
+    });
+
     // currentScript.src is this file's URL — register it as the SW
-    const swUrl = document.currentScript.src;
+    const swUrl = document.currentScript && document.currentScript.src;
+    if (!swUrl) return;
+
     navigator.serviceWorker.register(swUrl).then((reg) => {
-      if (reg.active && !navigator.serviceWorker.controller) {
-        // SW is active but not yet controlling this page → reload once
-        sessionStorage.setItem(reloadKey, '1');
-        window.location.reload();
+      const maybeReload = () => {
+        if (window.crossOriginIsolated) return;
+        if (navigator.serviceWorker.controller || reg.active || reg.waiting) {
+          reloadOnce();
+        }
+      };
+
+      const installing = reg.installing;
+      if (installing) {
+        installing.addEventListener('statechange', () => {
+          if (installing.state === 'activated') {
+            maybeReload();
+          }
+        });
       }
+
+      maybeReload();
+      navigator.serviceWorker.ready.then(maybeReload);
+    }).catch((err) => {
+      console.error('[coi-sw] registration failed', err);
     });
   }
 })();

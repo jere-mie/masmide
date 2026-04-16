@@ -10,20 +10,61 @@ import { loadFS, saveFS, resetFS, getFileById } from './lib/storage';
 const STDIN_BUF_SIZE = 65536;
 const SHARED_BUF_SIZE = 8 + STDIN_BUF_SIZE;
 
+type RuntimeStatus = 'ready' | 'initializing' | 'unsupported';
+
 let entryCounter = 0;
 function mkEntry(type: ConsoleEntry['type'], text: string): ConsoleEntry {
   return { id: String(++entryCounter), type, text };
+}
+
+function getRuntimeStatus(): RuntimeStatus {
+  if (
+    typeof window !== 'undefined'
+    && typeof SharedArrayBuffer !== 'undefined'
+    && window.crossOriginIsolated
+  ) {
+    return 'ready';
+  }
+
+  if (
+    typeof window !== 'undefined'
+    && window.isSecureContext
+    && typeof navigator !== 'undefined'
+    && 'serviceWorker' in navigator
+  ) {
+    return 'initializing';
+  }
+
+  return 'unsupported';
 }
 
 export default function App() {
   const [fsState, setFsState] = useState<FileSystemState>(() => loadFS());
   const [entries, setEntries] = useState<ConsoleEntry[]>([]);
   const [isRunning, setIsRunning] = useState(false);
+  const [runtimeStatus, setRuntimeStatus] = useState<RuntimeStatus>(() => getRuntimeStatus());
   const sharedBufferRef = useRef<SharedArrayBuffer | null>(null);
   const workerRef = useRef<Worker | null>(null);
   const [activeMobileTab, setActiveMobileTab] = useState<'files' | 'editor' | 'console'>('editor');
 
   useEffect(() => { saveFS(fsState); }, [fsState]);
+
+  useEffect(() => {
+    const updateRuntimeStatus = () => {
+      setRuntimeStatus(getRuntimeStatus());
+    };
+
+    updateRuntimeStatus();
+    window.addEventListener('focus', updateRuntimeStatus);
+    document.addEventListener('visibilitychange', updateRuntimeStatus);
+    navigator.serviceWorker?.addEventListener('controllerchange', updateRuntimeStatus);
+
+    return () => {
+      window.removeEventListener('focus', updateRuntimeStatus);
+      document.removeEventListener('visibilitychange', updateRuntimeStatus);
+      navigator.serviceWorker?.removeEventListener('controllerchange', updateRuntimeStatus);
+    };
+  }, []);
 
   const appendEntry = useCallback((entry: ConsoleEntry) => {
     setEntries(prev => {
@@ -36,6 +77,14 @@ export default function App() {
   }, []);
 
   const handleRun = useCallback(() => {
+    if (runtimeStatus !== 'ready') {
+      const message = runtimeStatus === 'initializing'
+        ? 'The secure runtime is still initializing. The page should reload automatically once ready. If it does not, refresh once and try again.\n'
+        : 'SharedArrayBuffer is unavailable in this browser context. Open the app over HTTPS and allow the page to finish loading before running a program.\n';
+      setEntries([mkEntry('error', message)]);
+      return;
+    }
+
     const activeFile = fsState.activeFileId
       ? getFileById(fsState.nodes, fsState.activeFileId)
       : undefined;
@@ -88,7 +137,7 @@ export default function App() {
     };
 
     worker.postMessage({ type: 'run', asmSource: activeFile.content, sharedBuffer: buf });
-  }, [fsState, appendEntry]);
+  }, [appendEntry, fsState, runtimeStatus]);
 
   const handleStop = useCallback(() => {
     if (workerRef.current) {
@@ -142,7 +191,13 @@ export default function App() {
 
   return (
     <div className="flex flex-col h-screen bg-[#1e1e2e] text-[#cdd6f4] overflow-hidden">
-      <Header onRun={handleRun} onStop={handleStop} onReset={handleReset} isRunning={isRunning} />
+      <Header
+        onRun={handleRun}
+        onStop={handleStop}
+        onReset={handleReset}
+        isRunning={isRunning}
+        runtimeStatus={runtimeStatus}
+      />
 
       {/* Mobile tab bar */}
       <div className="md:hidden flex border-b border-[#2d2d3f] bg-[#181825] shrink-0">
