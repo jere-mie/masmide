@@ -16,8 +16,10 @@ export const Editor: React.FC<EditorProps> = ({ state, onStateChange, onRun }) =
   const { nodes, openFileIds, activeFileId } = state;
   const editorRef = useRef<Parameters<OnMount>[0] | null>(null);
   const onRunRef = useRef<() => void>(onRun);
+  const cleanupFindWidgetHoverRef = useRef<(() => void) | null>(null);
 
   useEffect(() => { onRunRef.current = onRun; }, [onRun]);
+  useEffect(() => () => cleanupFindWidgetHoverRef.current?.(), []);
 
   const openFiles = openFileIds
     .map(id => nodes.find(n => n.id === id) as FileNode | undefined)
@@ -30,12 +32,37 @@ export const Editor: React.FC<EditorProps> = ({ state, onStateChange, onRun }) =
   const handleMount: OnMount = (editor, monaco) => {
     editorRef.current = editor;
     registerMasmLanguage(monaco);
+    cleanupFindWidgetHoverRef.current?.();
 
     // Keyboard shortcut: Ctrl/Cmd+Enter to run
     editor.addCommand(
       monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter,
       () => onRunRef.current(),
     );
+
+    const editorDomNode = editor.getDomNode();
+
+    if (editorDomNode) {
+      // Monaco attaches delayed hover tooltips to the find widget buttons.
+      // Suppress those hover events so the close button stays clickable.
+      const suppressFindWidgetButtonHover = (event: MouseEvent) => {
+        const target = event.target;
+
+        if (!(target instanceof HTMLElement)) return;
+        if (!target.closest('.find-widget .button, .find-widget .codicon-find-selection')) return;
+
+        event.stopPropagation();
+      };
+
+      editorDomNode.addEventListener('mouseover', suppressFindWidgetButtonHover, true);
+
+      const cleanup = () => {
+        editorDomNode.removeEventListener('mouseover', suppressFindWidgetButtonHover, true);
+      };
+
+      cleanupFindWidgetHoverRef.current = cleanup;
+      editor.onDidDispose(cleanup);
+    }
   };
 
   // When active file changes, tell Monaco to update its model
